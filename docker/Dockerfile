@@ -172,6 +172,25 @@ COPY --chown=anythingllm:anythingllm --from=frontend-build /app/frontend/dist /a
 ENV NODE_ENV=production
 ENV ANYTHING_LLM_RUNTIME=docker
 ENV DEPLOYMENT_VERSION=1.12.0
+ENV COMMUNITY_HUB_BUNDLE_DOWNLOADS_ENABLED=1
+ENV PROVIDER_SUPPORTS_NATIVE_TOOL_CALLING=true
+ENV ENABLE_AGENT_MODE=true
+
+USER root
+
+RUN apt-get update && apt-get install -y \
+    iproute2 \
+    iputils-ping \
+    openssh-client \
+    mosquitto-clients \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install wweb-mcp globally
+RUN npm install -g wweb-mcp
+
+RUN npm install -g world-news-api-mcp
+
+USER anything-llm
 
 # Setup the healthcheck
 HEALTHCHECK --interval=1m --timeout=10s --start-period=1m \

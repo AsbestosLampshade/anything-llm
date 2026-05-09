@@ -1,0 +1,14 @@
+{
+  "tools": {
+    "ping": {
+      "description": "Ping a host",
+      "command": "ping -c 1 {host}",
+      "params": ["host"]
+    },
+    "disk_usage": {
+      "description": "Check disk usage",
+      "command": "df -h",
+      "params": []
+    }
+  }
+}
