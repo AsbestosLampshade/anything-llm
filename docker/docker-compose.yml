@@ -16,11 +16,13 @@ services:
       - SYS_ADMIN
 
     volumes:
+      - "/home/alfaugus/data/Projects/anythingllm/chrome-linux64:/opt/chrome-linux64:ro"
       - "./.env:/app/server/.env"
       - "../server/storage:/app/server/storage"
       - "../collector/hotdir/:/app/collector/hotdir"
       - "../collector/outputs/:/app/collector/outputs"
-      - "/tmp/thunderbird-mcp:/shared/thunderbird-mcp"
+      - "/tmp/thunderbird-mcp:/tmp/thunderbird-mcp"
+      - "/home/alfaugus/.config/waybar/scripts/vikunja:/app/vikunja-config:ro"
       - "/home/alfaugus/.ssh:/app/.ssh:ro"
 
     user: "${UID:-1000}:${GID:-1000}"
