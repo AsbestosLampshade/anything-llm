@@ -10,6 +10,7 @@ import {
 import { spawnSync } from "child_process";
 
 const PI_HOST = "alfaugus@192.168.1.200";
+const SSH_OPTS = "-o ControlMaster=no -o StrictHostKeyChecking=no";
 
 const server = new Server(
   { name: "music-player", version: "1.0.0" },
@@ -75,15 +76,15 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const genre = args.genre
         .replace(/"/g, "")
         .replace(/'/g, "");
-      cmd = `ssh ${PI_HOST} "~/projects/scripts/music_control.sh play '${genre}'"`;
+      cmd = `ssh ${SSH_OPTS} ${PI_HOST} "~/projects/scripts/music_control.sh play '${genre}'"`;
     } else if (name === "music_pause") {
-      cmd = `ssh ${PI_HOST} "~/projects/scripts/music_control.sh pause"`;
+      cmd = `ssh ${SSH_OPTS} ${PI_HOST} "~/projects/scripts/music_control.sh pause"`;
     } else if (name === "music_resume") {
-      cmd = `ssh ${PI_HOST} "~/projects/scripts/music_control.sh resume"`;
+      cmd = `ssh ${SSH_OPTS} ${PI_HOST} "~/projects/scripts/music_control.sh resume"`;
     } else if (name === "music_skip") {
-      cmd = `ssh ${PI_HOST} "~/projects/scripts/music_control.sh skip"`;
+      cmd = `ssh ${SSH_OPTS} ${PI_HOST} "~/projects/scripts/music_control.sh skip"`;
     } else if (name === "music_stop") {
-      cmd = `ssh ${PI_HOST} "~/projects/scripts/music_control.sh stop"`;
+      cmd = `ssh ${SSH_OPTS} ${PI_HOST} "~/projects/scripts/music_control.sh stop"`;
     } else {
       throw new Error("Unknown tool");
     }
@@ -93,17 +94,19 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       encoding: "utf8"
     });
 
+    const output = result.stdout.trim() || result.stderr.trim() || "OK";
+
     return {
       content: [{
         type: "text",
-        text: result.stdout || result.stderr || "OK"
+        text: output
       }]
     };
   } catch (e) {
     return {
       content: [{
         type: "text",
-        text: e.message
+        text: "Error: " + e.message
       }]
     };
   }
