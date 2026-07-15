@@ -71,24 +71,35 @@ class WhatsAppService {
             if (!this.client.info) {
                 throw new Error('WhatsApp client not ready. Please try again later.');
             }
-            const chats = await this.client.getChats();
-            return chats.map(chat => {
-                const lastMessageTimestamp = chat.lastMessage
-                    ? timestampToIso(chat.lastMessage.timestamp)
-                    : '';
-                return {
-                    id: chat.id._serialized,
-                    name: chat.name,
-                    unreadCount: chat.unreadCount,
-                    timestamp: lastMessageTimestamp,
-                    lastMessage: chat.lastMessage ? chat.lastMessage.body : '',
-                };
+            const chatData = await this.client.pupPage.evaluate(async () => {
+                try {
+                    const Store = window.require('WAWebCollections');
+                    const chats = Store.Chat.getModelsArray();
+                    return chats.map(c => ({
+                        id: c.id._serialized,
+                        name: c.name || c.formattedTitle || '',
+                        unreadCount: c.unreadCount,
+                        timestamp: c.t || 0,
+                        isGroup: c.isGroup || false
+                    }));
+                } catch (e) { return { _error: e.message }; }
             });
+            if (chatData._error) {
+                throw new Error(chatData._error);
+            }
+            return chatData.map(chat => ({
+                id: chat.id,
+                name: chat.name,
+                unreadCount: chat.unreadCount,
+                timestamp: chat.timestamp ? timestampToIso(chat.timestamp) : '',
+                lastMessage: '',
+            }));
         }
         catch (error) {
             throw new Error(`Failed to fetch chats: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
+
     async getMessages(number, limit = 10) {
         try {
             if (!this.client.info) {
