@@ -1,0 +1,13 @@
+{
+  "name": "google-tasks-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Google Tasks API — full CRUD via stdio",
+  "main": "server.js",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "googleapis": "^173.0.0",
+    "google-auth-library": "^9.0.0",
+    "zod": "^4.4.2"
+  }
+}
