@@ -77,7 +77,8 @@ def send_error(id, message):
 
 TOOLS = [
     {"name": "vikunja_list_tasks", "description": "List all pending (undone) tasks from Vikunja.", "inputSchema": {"type": "object", "properties": {}, "required": []}},
-    {"name": "vikunja_get_task", "description": "Get full details of a single task by ID.", "inputSchema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
+    {"name": "vikunja_get_task", "description": "Get full details of a single task by ID, including subtasks and parent task relationships.", "inputSchema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
+    {"name": "vikunja_get_task_tree", "description": "Get a task and all its subtasks recursively as a tree. Pass task_id to see full hierarchy.", "inputSchema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
     {"name": "vikunja_create_task", "description": "Create a new task. Requires project_id and title.", "inputSchema": {"type": "object", "properties": {"project_id": {"type": "integer"}, "title": {"type": "string"}, "description": {"type": "string"}, "due_date": {"type": "string", "description": "YYYY-MM-DD"}, "priority": {"type": "integer"}, "labels": {"type": "array", "items": {"type": "string"}}}, "required": ["project_id", "title"]}},
     {"name": "vikunja_update_task", "description": "Update a task. Mark done, change title/description/due date.", "inputSchema": {"type": "object", "properties": {"task_id": {"type": "integer"}, "title": {"type": "string"}, "description": {"type": "string"}, "due_date": {"type": "string", "description": "YYYY-MM-DD"}, "done": {"type": "boolean"}, "priority": {"type": "integer"}}, "required": ["task_id"]}},
     {"name": "vikunja_list_projects", "description": "List all projects with their IDs.", "inputSchema": {"type": "object", "properties": {}, "required": []}},
@@ -95,7 +96,37 @@ def handle_tool_call(name, args):
                 result.append({"id": t["id"], "title": t["title"], "due_date": (t.get("due_date") or "")[:10], "priority": t.get("priority", 0), "project_id": t.get("project_id"), "labels": labels})
             return json.dumps(result, indent=2)
         elif name == "vikunja_get_task":
-            return json.dumps(api_call("GET", f"/tasks/{args['task_id']}"), indent=2, default=str)
+            t = api_call("GET", f"/tasks/{args['task_id']}")
+            # extract relationship summary
+            rel = t.get("related_tasks", {})
+            parent = [p["title"] for p in (rel.get("parenttask") or [])]
+            subs = [(s["id"], s["title"], s.get("done", False)) for s in (rel.get("subtask") or [])]
+            desc = t.get("description", "")
+            return json.dumps({
+                "id": t["id"], "title": t["title"], "description": desc,
+                "done": t.get("done", False), "project_id": t.get("project_id"),
+                "parent_tasks": parent,
+                "subtasks": [{"id": s[0], "title": s[1], "done": s[2]} for s in subs]
+            }, indent=2)
+        elif name == "vikunja_get_task_tree":
+            seen = set()
+            def build_tree(tid, depth=0):
+                if tid in seen:
+                    return {"id": tid, "__circular": True}
+                seen.add(tid)
+                t = api_call("GET", f"/tasks/{tid}")
+                rel = t.get("related_tasks", {})
+                subs = rel.get("subtask") or []
+                items = []
+                for s in subs:
+                    items.append(build_tree(s["id"], depth + 1))
+                result = {"id": t["id"], "title": t["title"], "done": t.get("done", False)}
+                if t.get("description"):
+                    result["description"] = t["description"]
+                if items:
+                    result["subtasks"] = items
+                return result
+            return json.dumps(build_tree(args["task_id"]), indent=2)
         elif name == "vikunja_create_task":
             pid = args["project_id"]
             payload = {"title": args["title"]}
