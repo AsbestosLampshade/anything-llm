@@ -10,3 +10,8 @@ aws_cf_deploy_anything_llm.json
 yarn.lock
 *.bak
 .idea
+# MCP runtime data - may contain credentials, tokens, sessions
+storage/**/credentials/
+storage/**/.wwebjs_auth/
+storage/**/token.json
+storage/**/*.env
