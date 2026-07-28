@@ -150,6 +150,20 @@ const TOOLS = [
       },
       required: ["tasklist_id", "task_id"]
     }
+  },
+  {
+    name: "google_add_workout",
+    description: "Add a workout to the 'Workout' exercise task. Appends to notes with timestamp. Defaults to 'Workout' task and auto-discovers the tasklist. If no matching task exists, creates one.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tasklist_id: { type: "string", description: "Optional tasklist ID (auto-discovered from first available list if omitted)" },
+        title: { type: "string", description: "Title of the exercise task (default: 'Workout')" },
+        workout: { type: "string", description: "Workout details to append to the task notes, e.g. '5 pushups, 3 pullups, 10 squats'" },
+        due: { type: "string", description: "Optional due date in RFC 3339 for new tasks (e.g. 2026-07-25T17:00:00Z)" }
+      },
+      required: ["workout"]
+    }
   }
 ];
 
@@ -224,6 +238,60 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         tasklist: args.tasklist_id, task: args.task_id, requestBody: body
       });
       return { content: [{ type: "text", text: `Marked task ${args.task_id} as completed` }] };
+    }
+
+    if (name === "google_add_workout") {
+      const title = args.title || "Workout";
+
+      let tasklistId = args.tasklist_id;
+      if (!tasklistId) {
+        const lists = await service.tasklists.list({ maxResults: 1 });
+        const first = (lists.data.items || [])[0];
+        if (!first) throw new Error("No tasklists found in your Google Tasks account");
+        tasklistId = first.id;
+      }
+
+      const existing = await service.tasks.list({
+        tasklist: tasklistId,
+        maxResults: 5,
+        showCompleted: false
+      });
+      const match = (existing.data.items || []).find(
+        t => t.title && t.title.toLowerCase() === title.toLowerCase()
+      );
+
+      if (match) {
+        const existingNotes = match.notes || "";
+        const timestamp = new Date().toLocaleString("en-US", {
+          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+        const workoutEntry = `\n${timestamp}: ${args.workout}`;
+        const updatedNotes = existingNotes + workoutEntry;
+        const res = await service.tasks.update({
+          tasklist: tasklistId,
+          task: match.id,
+          requestBody: { ...match, notes: updatedNotes }
+        });
+        return {
+          content: [{
+            type: "text",
+            text: `Added workout to "${res.data.title}". New notes:\n${res.data.notes}`
+          }]
+        };
+      } else {
+        const body = { title, notes: args.workout };
+        if (args.due) body.due = args.due;
+        const res = await service.tasks.insert({
+          tasklist: tasklistId,
+          requestBody: body
+        });
+        return {
+          content: [{
+            type: "text",
+            text: `Created new task "${res.data.title}" with workout: ${args.workout}`
+          }]
+        };
+      }
     }
 
     if (name === "google_delete_task") {
